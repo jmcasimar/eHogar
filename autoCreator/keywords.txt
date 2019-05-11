@@ -1,0 +1,22 @@
+#######################################
+# Syntax Coloring Map For GrownGreens
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+autoCreator	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+autoCreation	KEYWORD2
+loadObjects	KEYWORD2
+cleanEepromKEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+MAX_MODULES	LITERAL1
