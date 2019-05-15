@@ -3,7 +3,6 @@
 // Copyright (C) 2019 eHogar
 
 #include "autoCreator.h"
-#include "EEPROM.h"
 
 byte autoCreator::__TotalObjects = 0;
 autoCreator *autoCreator::ptr[MAX_MODULES];

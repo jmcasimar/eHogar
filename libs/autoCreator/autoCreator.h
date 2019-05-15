@@ -26,6 +26,7 @@ along with eHogar.  If not, see <https://www.gnu.org/licenses/>.
 #define autoCreator_h
 
 #include <stdlib.h>
+#include <EEPROM.h>
 #if ARDUINO >= 100
 #include <Arduino.h>
 #else
