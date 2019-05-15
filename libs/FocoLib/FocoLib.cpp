@@ -3,77 +3,92 @@
 // Copyright (C) 2019 eHogar
 
 #include "FocoLib.h"
-#include "EEPROM.h"
 
-Foco::Foco((int id, int attachTo, String pub, String name)
+Foco::Foco(int id, byte attachTo, String pub, String log, String name)
   { __Pin = attachTo ; // Pin PWM del foco
     __ID = id; // ID del foco
     __Topic = pub; // Topic MQTT al que publicará su estado
+    __logTopic = log;  // Topic MQTT al que publicará logs
     __Nombre = name; // Nombre del foco o ubicación
+    // Default settings
+    __prevState = 0;
+    __State = 0;
+    __lastValue = 0;
+    __lastPost = 0;
+    __lastEEPROM = 0;
   }
 
-void Foco::setup()
-  { ledcSetup(ID, freq, resolution);  // Setup de canal, frecuencia y resolución de PWM
-    ledcAttachPin(pin, ID); // Setup de pin para PWM del foco
-    state = EEPROM.read(ID + 32); // lectura del espacio de memoria asignado para estado
-    _logMsg  = "Estado anterior de foco " + nombre + " es " + String(state);  // Cadena de información
+void Foco::setup(int freq, int resolution, PubSubClient &client)
+  { ledcSetup(__ID, freq, resolution);  // Setup de canal, frecuencia y resolución de PWM
+    ledcAttachPin(__Pin, __ID); // Setup de pin para PWM del foco
+    __State = EEPROM.read(__ID + 32); // lectura del espacio de memoria asignado para estado
+    char logTopic[20];
+    char logMsg[50];
+    String _logMsg  = "Estado anterior de foco " + __Nombre + " es " + String(__State);  // Cadena de información
     _logMsg.toCharArray(logMsg, 50);
+    __logTopic.toCharArray(logTopic, 20);
     Serial.println(logMsg); // Imprimir información en serial
     client.publish(logTopic, logMsg); // Enviar información al log del servidor
-    dimm();
+    dimm(client);
   }
 
-void Foco::dimm()
-  { if (state < 0) state = 0; // Variables de seguridad para regular de 0 a 100 %
-    else if (state > 100) state = 100;
+void Foco::dimm(PubSubClient &client)
+  { if (__State < 0){__State = 0;} // Variables de seguridad para regular de 0 a 100 %
+    else if (__State > 100){__State = 100;}
 
-    if (state != prevState) { // Si cambió el estado de destino
-      if (state < prevState) { // Si el estado nuevo es menor al anterior, ir bajando
-        for (int i = prevState; i >= state; i--)
+    if (__State != __prevState) { // Si cambió el estado de destino
+      if (__State < __prevState) { // Si el estado nuevo es menor al anterior, ir bajando
+        for (int i = __prevState; i >= __State; i--)
         {
-          ledcWrite(ID, i * 2.55);
+          ledcWrite(__ID, i * 2.55);
           delay(5);
         }
       }
-      if (state > prevState) { // Si el estado nuevo es mayor al anterior, ir subiendo
-        for (int i = prevState; i <= state; i++)
+      if (__State > __prevState) { // Si el estado nuevo es mayor al anterior, ir subiendo
+        for (int i = __prevState; i <= __State; i++)
         {
-          ledcWrite(ID, i * 2.55);
+          ledcWrite(__ID, i * 2.55);
           delay(5);
         }
       }
-      _logMsg  = "Foco " + nombre + " al " + state + " %"; // Cadena de información
+      char logTopic[20];
+      char logMsg[50];
+      String _logMsg  = "Foco " + __Nombre + " al " + __State + " %"; // Cadena de información
       _logMsg.toCharArray(logMsg, 50);
+      __logTopic.toCharArray(logTopic, 20);
       Serial.println(logMsg); // Imprimir información en el serial
       client.publish(logTopic, logMsg); // Enviar información al log del serial
-      prevState = state; // Asignar nuevo estado como estado previo
+      __prevState = __State; // Asignar nuevo estado como estado previo
     }
     int now = millis() / 1000;
-    if (now - lastPost > 1) { // Si ya pasó un segundo desde la última publicación
-      if (lastValue != state)
+    if (now - __lastPost > 1) { // Si ya pasó un segundo desde la última publicación
+      if (__lastValue != __State)
       {
-        save(); // Guardar valor en memoria
-        publish(); // Publicar valor al servidor
-        lastPost = now; // Guardar nuevo momento de último post
+        save(client); // Guardar valor en memoria
+        publish(client); // Publicar valor al servidor
+        __lastPost = now; // Guardar nuevo momento de último post
       }
     }
   }
 
-void Foco::save()
-  { EEPROM.write(ID + 32, state); // Escribir en memoria
+void Foco::save(PubSubClient &client)
+  { EEPROM.write(__ID + 32, __State); // Escribir en memoria
     EEPROM.commit(); // Fijar como persistente
-    _logMsg  = "Estado de foco escrito en slot " + String(ID + 32) + " valor: " + String(state); // Cadena de información
+    char logTopic[20];
+    char logMsg[50];
+    __logTopic.toCharArray(logTopic,20);
+    String _logMsg  = "Estado de foco escrito en slot " + String(__ID + 32) + " valor: " + String(__State); // Cadena de información
     _logMsg.toCharArray(logMsg, 50);
     Serial.println(logMsg); // Imprimir en el puerto serial
     client.publish(logTopic, logMsg); // Enviar al log del servidor
   }
 
 
-void publish()
+void Foco::publish(PubSubClient &client)
   { char topicString[20];
     char msgString[16];
-    topic.toCharArray(topicString, 20);
-    dtostrf(state, 1, 2, msgString);
+    __Topic.toCharArray(topicString, 20);
+    dtostrf(__State, 1, 2, msgString);
     client.publish(topicString, msgString); // Publicar estado actual en el servidor
-    lastValue = state; // Fijar nuevo valor como último valor publicado
+    __lastValue = __State; // Fijar nuevo valor como último valor publicado
   }

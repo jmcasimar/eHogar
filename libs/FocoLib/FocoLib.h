@@ -26,6 +26,8 @@ along with eHogar.  If not, see <https://www.gnu.org/licenses/>.
 #define FocoLib_h
 
 #include <stdlib.h>
+#include <EEPROM.h>
+#include <PubSubClient.h>
 #if ARDUINO >= 100
 #include <Arduino.h>
 #else
@@ -35,22 +37,23 @@ along with eHogar.  If not, see <https://www.gnu.org/licenses/>.
 
 class Foco {
   private:
-    const int __Pin; // Pin asignado
+    byte __Pin; // Pin asignado
     int __ID; // ID del foco
     int __prevState;  // Estado previo del foco
     int __State;  // Estado actual del foco
-    String __Topic; // Topic MQTT para publicar
+    String __Topic ; // Topic MQTT para publicar
+    String __logTopic ; // Topic MQTT para publicar logs
     int __lastValue;  // Variable de última publicación
-    int __lastPost = 0; // Variable para temporizador de publicaciones
-    int __lastEEPROM = 0; // Variable para último valor almacenado en memora
+    int __lastPost; // Variable para temporizador de publicaciones
+    int __lastEEPROM; // Variable para último valor almacenado en memora
     String __Nombre; // Variable para nombre del foco
 
   public:
-    Foco(int id, int attachTo, String pub, String name); // Constructor
-    void setup();
-    void dimm();
-    void save();
-    void publish();
+    Foco(int id, byte attachTo, String pub, String log, String name); // Constructor
+    void setup(int freq, int resolution, PubSubClient &client);
+    void dimm(PubSubClient &client);
+    void save(PubSubClient &client);
+    void publish(PubSubClient &client);
 };
 
 #endif
