@@ -54,6 +54,8 @@ class Foco {
     void dimm(PubSubClient &client);
     void save(PubSubClient &client);
     void publish(PubSubClient &client);
+    int getState();
+    void setState(int state);
 };
 
 #endif

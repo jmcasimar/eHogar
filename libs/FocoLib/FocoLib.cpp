@@ -92,3 +92,9 @@ void Foco::publish(PubSubClient &client)
     client.publish(topicString, msgString); // Publicar estado actual en el servidor
     __lastValue = __State; // Fijar nuevo valor como último valor publicado
   }
+
+int Foco::getState()
+  { return __State;}
+
+void Foco::setState(int state)
+  { __State = state;}
