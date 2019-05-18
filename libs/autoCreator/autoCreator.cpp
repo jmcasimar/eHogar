@@ -11,7 +11,8 @@ void autoCreator::autoCreation(String loc, String Type, String id, bool print = 
   {  new autoCreator(loc, Type, id, print); }
 
 void autoCreator::loadObjects()
-  { int totalObject = EEPROM.read(0);
+  { EEPROM.begin(1024);
+    int totalObject = EEPROM.read(0);
     if(totalObject>0){
       for(int i=0; i<totalObject; i++){
         String loc = EEPROM.readString(i*36+1);

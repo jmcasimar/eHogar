@@ -4,7 +4,6 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
-#include <EEPROM.h>
 #include <PubSubClient.h>
 #include <receptorAlarma.h>
 
@@ -50,7 +49,6 @@ void printLog(String msg) {
 
 
 class RGBled {
-
   private:
     int _pinR;
     int _pinG;
@@ -377,7 +375,7 @@ void setup_wifi() {
   if (WiFi.status() != WL_CONNECTED) {
     int retry = 0;
     delay(10);
-    Serial.println(); a
+    Serial.println();
     Serial.print("Conectando a ");
     Serial.print(_ssid);
 
@@ -414,7 +412,7 @@ void callback(char* topic, byte* message, unsigned int length) {
   value = messageTemp.toInt();
 
   if (String(topic) == "receptorAlarma/sensores" && messageTemp == "agregarSensor") {
-    alarma.addSensor(ubi);
+    alarma.addSensor(ubi, client);
   }
 
   if (String(topic) == "status/alarma" && messageTemp == "envia")
@@ -428,7 +426,6 @@ void callback(char* topic, byte* message, unsigned int length) {
 
 void setup() {
   Serial.begin(115200); // Inicializar puerto serial
-  EEPROM.begin(1024);
 
   // Configurar interrupciones
   timer = timerBegin(0, 80, true);
@@ -437,12 +434,11 @@ void setup() {
   timerAlarmEnable(timer);
 
   // Asignar o cargar configuración wifi
-  ssid = "Hogar";
+  String ssid = "Hogar";
   ssid.toCharArray(_ssid, sizeof(_ssid));
 
-  password = "reddecasa";
+  String password = "reddecasa";
   password.toCharArray(_password, sizeof(_password));
-  //EEPROM.commit();
 
   // Configurar IP fija
   IPAddress local_IP(192, 168, 10, 124);
@@ -484,5 +480,5 @@ void loop() {
   }
   // Ejecutar cleinte de servidor web
   server.handleClient();
-  alarma.monitor();
+  alarma.monitor(client);
 }

@@ -46,8 +46,8 @@ class receptorAlarma
         unsigned long TMR0L = 0;
         receptorAlarma (int pin, String topic) ; // Constructor
         void begin();
-        void addSensor(String location);
-        void monitor();
+        void addSensor(String location, PubSubClient &client);
+        void monitor(PubSubClient &client);
         void publish(unsigned long message, PubSubClient &client);
         unsigned long receiveRF();
   };

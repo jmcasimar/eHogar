@@ -12,19 +12,24 @@ receptorAlarma::receptorAlarma(int pin, String topic) // Constructor
 void receptorAlarma::begin()
    {
      Serial.println(F("Inicializando sensores"));
-     int objects = autoCreator::loadObjects();
-     Serial.print(F("Se han cargado "));
-     Serial.print(autoCreator::__TotalObjects);
-     Serial.println(F(" sensores."));
+     autoCreator::loadObjects();
    }
 
 
-void receptorAlarma::addSensor(String location)
+void receptorAlarma::addSensor(String location, PubSubClient &client)
   { unsigned long message = 0;
     unsigned long message2 = 0;
     int now = millis()/1000;
     int tim = millis()/1000;
     bool check = 0;
+    char topic[20];
+    char msg[20];
+    char msg1[20];
+    String agregado = "agregado";
+    String error = "error";
+    __Topic.toCharArray(topic,20);
+    agregado.toCharArray(msg, 20);
+    error.toCharArray(msg1, 20);
     while(!message && now-tim < 15) {
      now = millis()/1000;
      message = receiveRF();
@@ -50,18 +55,18 @@ void receptorAlarma::addSensor(String location)
              autoCreator::autoCreation(location, sType, ID, HIGH);
              check = 1;
              Serial.println("Sensor agregado");
-             //client.publish(__Topic, "agregado");
+             client.publish(topic, msg);
            }
          }
        }
      }
     }
-    if (!check) int a = 1; //client.publish(__Topic, "error");
+    if (!check) int a = 1; client.publish(topic, msg1);
   }
 
-void receptorAlarma::monitor()
+void receptorAlarma::monitor(PubSubClient &client)
   { unsigned long message = receiveRF();
-    publish(message);
+    publish(message, client);
   }
 
 void receptorAlarma::publish(unsigned long message, PubSubClient &client)
@@ -77,14 +82,18 @@ void receptorAlarma::publish(unsigned long message, PubSubClient &client)
 
       for (int i = 0; i < autoCreator::__TotalObjects; i++){
         if (ID == autoCreator::ptr[i]->__ID) {
+          char mqttTop[20];
+          char mqttMsg[60];
           String type =  autoCreator::ptr[i]->__Type;
           String location = autoCreator::ptr[i]->__Location;
           Serial.print(F("El sensor de ")); Serial.print(type); Serial.print(F(" con ID ")); Serial.print((ID));
           Serial.print(F(" ha transmitido en ")); Serial.print((location)); Serial.print(F(" como ")); Serial.println((alarmType));
           String mqttMessage;
           mqttMessage = String(type) + "/" + String(location) + "/" + String(alarmType);
+          __Topic.toCharArray(mqttTop, 20);
+          mqttMessage.toCharArray(mqttMsg, 60);
           Serial.println("El mensaje MQTT es " + mqttMessage);
-          client.publish(__Topic, mqttMessage)
+          client.publish(mqttTop, mqttMsg);
         }
       }
     }
