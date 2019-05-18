@@ -64,6 +64,9 @@ void receptorAlarma::addSensor(String location, PubSubClient &client)
     if (!check) int a = 1; client.publish(topic, msg1);
   }
 
+void receptorAlarma::cleanSensors()
+  { autoCreator::cleanEeprom(); }
+
 void receptorAlarma::monitor(PubSubClient &client)
   { unsigned long message = receiveRF();
     publish(message, client);

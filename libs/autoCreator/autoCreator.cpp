@@ -25,11 +25,13 @@ void autoCreator::loadObjects()
 
 void autoCreator::cleanEeprom()
   { if(__TotalObjects>0){
-        for(int i = 0; i<=__TotalObjects;i++){
+        for(int i = 0; i<=__TotalObjects+i;i++){
           for(int j = 0; j<36; j++){
             EEPROM.write(i*36+j,0);
             EEPROM.commit();
           }
+          ptr[i]->~autoCreator();
+          ptr[i] = NULL;
         }
     }
   }
@@ -59,3 +61,11 @@ autoCreator::autoCreator(String loc, String Type, String id, bool print = LOW) /
        Serial.println(__ID);
      }
    }
+
+autoCreator::~autoCreator()
+  { Serial.print(F("Se ha destruido el objeto correspondiente al módulo en "));
+    Serial.print(__Location); Serial.print(F(" del tipo "));
+    Serial.print(__Type); Serial.print(F(" con el ID= "));
+    Serial.println(__ID);
+    __TotalObjects--;
+  }

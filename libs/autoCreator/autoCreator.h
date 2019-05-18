@@ -53,6 +53,7 @@ class autoCreator
           float __Value ;
 
           autoCreator(String loc, String Type, String id, bool print) ; // Constructor
+          ~autoCreator();  // Destructor
    } ;
 
    #endif
