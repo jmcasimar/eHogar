@@ -13,7 +13,7 @@ void autoCreator::autoCreation(String loc, String Type, String id, bool print = 
 void autoCreator::loadObjects()
   { EEPROM.begin(1024);
     int totalObject = EEPROM.read(0);
-    Serial.println(String(totalObject));
+    Serial.println(String(totalObject) + " objetos cargados");
     if(totalObject>0){
       for(int i=0; i<totalObject; i++){
         String loc = EEPROM.readString(i*36+1);
