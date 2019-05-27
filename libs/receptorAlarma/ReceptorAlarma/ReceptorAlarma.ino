@@ -6,6 +6,43 @@
 #include <Update.h>
 #include <PubSubClient.h>
 #include <receptorAlarma.h>
+# include <rgbLed.h>
+
+
+//SESION RF
+#define X                   // This parameter validates one the libraries the basic one RFM69 or eXtended oneRFM69X
+boolean IS_RFM69HW = false; // If High power RFM69HW is used
+#define FREQUENCY   RF69_915MHZ
+#include <WiFi.h>          // Required for ESP32
+#define X                  // eXtended Library Selector mandatory for ESP32
+
+#include <RFM69X.h> //  eXteneded RFM69 base library  
+
+#define NODEID      1           // RFM69 Node Address 
+#define NETWORKID   100
+
+long int ackSentCnt = 0;       // ACK Sent Counter
+long int ackReceivedCnt = 0;   // ACK Received Counter
+long int pingCnt = 0;          // PING Counter
+byte ackCount = 0;             // Used to count PING time
+
+#define LED         2          // LED is on pin 2 for ESP-32          
+#define RFM_SS      SS         // Default Slave Select PIN 5 for LOLIN 32
+#define RFM_INT     4        // One if a free GPIO supporting Interrupts
+
+byte RFM_INTNUM = digitalPinToInterrupt(RFM_INT);  // Standard way to convert Interrupt pin in interrupt number
+
+RFM69X radio(RFM_SS, RFM_INT, IS_RFM69HW, RFM_INTNUM);         // Create Extended RFM69radio instance
+
+
+// RFM69 parameters
+#define ENCRYPTKEY   "sampleEncryptKey" //has to be same 16 characters/bytes on all nodes, not more not less!
+bool SEND_PROMISCUOUS = false;       // set to 'true' to sniff all packets on the same network
+byte SEND_RTRY = 0;                  // Adjust the attempts of a Send With Reply is to be performed in case of timeout
+unsigned long SEND_WAIT_WDG = 40;    // adjust the Send With Reply wait time for which a acknowledge is expected (default is 40ms)
+
+
+////////////////////
 
 // Definir propiedades de red
 const char* host = "esp32";
@@ -33,7 +70,6 @@ String _logMsg;
 const int freq = 5000;
 const int resolution = 8;
 
-int TMR0L;
 int pin = 23;
 unsigned char rxdat[10];  // (global var) holds received RF bytes
 hw_timer_t * timer = NULL;
@@ -47,50 +83,10 @@ void printLog(String msg) {
 }
 
 
-
-class RGBled {
-  private:
-    int _pinR;
-    int _pinG;
-    int _pinB;
-    int _idR;
-    int _idG;
-    int _idB;
-    int ID;
-
-  public:
-    RGBled(int id, int r, int g, int b):
-      _pinR(r)
-    {
-      _pinG = g;
-      _pinB = b;
-      ID = id;
-      _idR = ID + 7;
-      _idG = ID + 8;
-      _idB = ID + 9;
-      ledcSetup(_idR, freq, resolution);
-      ledcSetup(_idG, freq, resolution);
-      ledcSetup(_idB, freq, resolution);
-      ledcAttachPin(_pinR, _idR);
-      ledcAttachPin(_pinG, _idG);
-      ledcAttachPin(_pinB, _idB);
-    }
-
-    void set(int r, int g, int b) {
-      ledcWrite(_idR, r);
-      ledcWrite(_idG, g);
-      ledcWrite(_idB, b);
-      printLog("Valores LED: R: " + String(r) + " G: " + String(g) + " B: " + String(b));
-    }
-};
 WebServer server(80);
-RGBled rgbLed1(1, 32, 33, 25);
-receptorAlarma alarma(23, "alarma");
+//rgbLed rgbLed1(22, 19, 21, 18);
+receptorAlarma alarma(23, "receptorAlarma");
 String ubi;
-
-void IRAM_ATTR onTimer() {
-  alarma.TMR0L++;
-}
 
 // Crear servidor web
 /*
@@ -341,20 +337,18 @@ void webServer() {
 
 // Crear funciones de conexión
 void setup_MQTT() {
-  rgbLed1.set(100, 50, 50);
+  //rgbLed1.set(100, 50, 50, 100);
   setup_wifi();
   if (WiFi.status() == WL_CONNECTED) {
     if (!client.connected()) {
       Serial.print("Probando conexión MQTT... ");
       if (client.connect(clientID)) {
-        rgbLed1.set(50, 50, 250);
+        //rgbLed1.set(50, 50, 250, 100);
         printLog("MQTT conectado");
         // Subscribirse
-        client.subscribe("alarma/config");
-        client.subscribe("alarma/ubicacion");
         client.subscribe("status/alarma");
-        client.subscribe("receptorAlarma/sensores");
-        client.subscribe("test");
+        client.subscribe("receptorAlarma");
+        client.subscribe("receptorAlarma/ubicacion");
         client.publish("status/alarma", "conectado");
         IPAddress ip;
         ip = (WiFi.localIP());
@@ -366,7 +360,7 @@ void setup_MQTT() {
         Serial.print("error, rc=");
         Serial.println(client.state());
         Serial.println("MQTT no conectado");
-        rgbLed1.set(255, 0, 5);
+        //rgbLed1.set(255, 0, 5, 100);
       }
     }
   }
@@ -411,15 +405,19 @@ void callback(char* topic, byte* message, unsigned int length) {
 
   value = messageTemp.toInt();
 
-  if (String(topic) == "receptorAlarma/sensores" && messageTemp == "agregarSensor") {
-    alarma.addSensor(ubi, client);
+  if (String(topic) == "receptorAlarma" && messageTemp == "agregarSensor") {
+    alarma.addSensor(ubi, client, radio);
+  }
+
+  if (String(topic) == "receptorAlarma" && messageTemp == "borrarSensores") {
+    alarma.cleanSensors(client);
   }
 
   if (String(topic) == "status/alarma" && messageTemp == "envia")
   {
     client.publish("status/alarma", "conectado");
   }
-  if (String(topic) == "alarma/ubicacion") {
+  if (String(topic) == "receptorAlarma/ubicacion") {
     ubi = messageTemp;
   }
 }
@@ -427,58 +425,84 @@ void callback(char* topic, byte* message, unsigned int length) {
 void setup() {
   Serial.begin(115200); // Inicializar puerto serial
 
-  // Configurar interrupciones
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 5, true);
-  timerAlarmEnable(timer);
+  //Sesion RF
+  alarma.beginRadio(ackCount, pingCnt, SEND_RTRY, SEND_WAIT_WDG, ackReceivedCnt);
 
-  // Asignar o cargar configuración wifi
-  String ssid = "Hogar";
-  ssid.toCharArray(_ssid, sizeof(_ssid));
-
-  String password = "reddecasa";
-  password.toCharArray(_password, sizeof(_password));
-
-  // Configurar IP fija
-  IPAddress local_IP(192, 168, 10, 124);
-  IPAddress gateway(192, 168, 10, 1);
-  IPAddress subnet(255, 255, 0, 0);
-
-  if (!WiFi.config(local_IP, gateway, subnet)) {
-    Serial.println("Falló la configuración de la IP fija");
+  if (!radio.initialize(FREQUENCY, NODEID, NETWORKID))
+  {
+    Serial.println ("\n****************************************************************");
+    Serial.println (" WARNING: RFM Transceiver initialisation failure: Set-up Halted  ");
+    Serial.println ("****************************************************************");
+    while (1); // Halt the process
   }
 
-  // Obtener dirección MAC
-  WiFi.mode(WIFI_MODE_STA);
-  mac = WiFi.macAddress();
-  mac.replace(":", "");
-  mac.toCharArray(clientID, 20);
-  Serial.println("El clientID es " + String(clientID));
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
+  if (IS_RFM69HW)  radio.setHighPower();      //only for RFM69HW!
+  radio.encrypt(ENCRYPTKEY);                  // set encryption
+  radio.promiscuous(SEND_PROMISCUOUS);         // set promiscuous mode
 
-  setup_MQTT(); //Inicializar WiFi y servidor MQTT
+#ifdef ESP32
+  Serial.println ("ESP32");
+#endif
 
-  // Crear e inicializar servidor web
-  webServer();
-  server.begin();
+#ifdef X
+  Serial.println ("Using RFM69 Extended mode");
+#else
+  Serial.println ("Using RFM69 Basic mode");
+#endif
+
+  char buff[50];
+  sprintf(buff, "\nListening at %d Mhz...", FREQUENCY == RF69_433MHZ ? 433 : FREQUENCY == RF69_868MHZ ? 868 : 915);
+  Serial.println(buff);
+
+  ////////////
+    //rgbLed1.begin();
+  
+    // Asignar o cargar configuración wifi
+    String ssid = "Hogar";
+    ssid.toCharArray(_ssid, sizeof(_ssid));
+  
+    String password = "reddecasa";
+    password.toCharArray(_password, sizeof(_password));
+  
+    // Configurar IP fija
+    IPAddress local_IP(192, 168, 10, 124);
+    IPAddress gateway(192, 168, 10, 1);
+    IPAddress subnet(255, 255, 0, 0);
+  
+    if (!WiFi.config(local_IP, gateway, subnet)) {
+      Serial.println("Falló la configuración de la IP fija");
+    }
+  
+    // Obtener dirección MAC
+    WiFi.mode(WIFI_MODE_STA);
+    mac = WiFi.macAddress();
+    mac.replace(":", "");
+    mac.toCharArray(clientID, 20);
+    Serial.println("El clientID es " + String(clientID));
+    client.setServer(mqtt_server, 1883);
+    client.setCallback(callback);
+  
+    setup_MQTT(); //Inicializar WiFi y servidor MQTT
+  
+    // Crear e inicializar servidor web
+  //  webServer();
+  //  server.begin();
   alarma.begin();
 }
 
 void loop() {
-  if (client.connected()) {
-    client.loop();
-  }
-  else {
-    int now = millis() / 1000;
-    if (now - conecTimmer > recon)
-    {
-      setup_MQTT();
-      conecTimmer = now;
+    if (client.connected()) {
+      client.loop();
     }
-  }
-  // Ejecutar cleinte de servidor web
-  server.handleClient();
-  alarma.monitor(client);
+    else {
+      int now = millis() / 1000;
+      if (now - conecTimmer > recon)
+      {
+        setup_MQTT();
+        conecTimmer = now;
+      }
+    }
+    // Ejecutar cleinte de servidor web
+    server.handleClient();
+  alarma.monitor(client, radio);
 }

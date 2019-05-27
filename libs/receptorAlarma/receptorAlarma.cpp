@@ -7,6 +7,7 @@
 receptorAlarma::receptorAlarma(int pin, String topic) // Constructor
    {__Pin = pin;
     __Topic = topic; // Set MQTT alarm topic
+
    }
 
 void receptorAlarma::begin()
@@ -16,9 +17,11 @@ void receptorAlarma::begin()
    }
 
 
-void receptorAlarma::addSensor(String location, PubSubClient &client)
+void receptorAlarma::addSensor(String location, PubSubClient &client, RFM69X& radio)
   { unsigned long message = 0;
     unsigned long message2 = 0;
+    String id1;
+    String id2;
     int now = millis()/1000;
     int tim = millis()/1000;
     bool check = 0;
@@ -32,20 +35,19 @@ void receptorAlarma::addSensor(String location, PubSubClient &client)
     error.toCharArray(msg1, 20);
     while(!message && now-tim < 15) {
      now = millis()/1000;
-     message = receiveRF();
+     message = receiveRF(radio);
      Serial.println(String(message));
      if(message){
+       id1 = ID;
        while(!message2 && now-tim < 15) {
          now = millis()/1000;
-         message2 = receptorAlarma::receiveRF();
-         if (message == message2) {
-           String type = String(message / 1000000);
-           String ID = String((message % 1000000)/100);
+         message2 = receptorAlarma::receiveRF(radio);
+         id2 = ID;
+         if (message == message2 && id1 == id2) {
            String sType;
-           if (type == "10") sType = "movimiento";
-           String alarm =  String(message % 100);
-           Serial.println(String(type) + String(ID) + String(alarm));
-           if (alarm == "21") {
+           if (sensorType == 10) sType = "movimiento";
+           Serial.println(String(sensorType) + String(ID) + String(message));
+           if (message == 21) {
              for (int i = 0; i < autoCreator::__TotalObjects; i++){
                if (ID == autoCreator::ptr[i]->__ID) {
                  Serial.println("Este sensor ya había sido añadido");
@@ -64,19 +66,18 @@ void receptorAlarma::addSensor(String location, PubSubClient &client)
     if (!check) int a = 1; client.publish(topic, msg1);
   }
 
-void receptorAlarma::cleanSensors()
+void receptorAlarma::cleanSensors(PubSubClient& client)
   { autoCreator::cleanEeprom(); }
 
-void receptorAlarma::monitor(PubSubClient &client)
-  { unsigned long message = receiveRF();
+void receptorAlarma::monitor(PubSubClient& client, RFM69X& radio)
+  { int message = receiveRF(radio);
     publish(message, client);
   }
 
-void receptorAlarma::publish(unsigned long message, PubSubClient &client)
+void receptorAlarma::publish(int message, PubSubClient &client)
   {
     if (message) {
-      String ID = String((message % 1000000)/100);
-      int alarm =  (message % 100);
+      int alarm =  message;
       String alarmType;
       if (alarm == 20) alarmType = "conectado";
       else if (alarm == 21) alarmType = "sincronizando";
@@ -102,82 +103,68 @@ void receptorAlarma::publish(unsigned long message, PubSubClient &client)
     }
   }
 
-unsigned long receptorAlarma::receiveRF() {
-  unsigned long rrp_data;
-  unsigned char rrp_period;
-  unsigned char rrp_bits;
-  unsigned char rrp_bytes;
-  unsigned long tim = 0;
-  unsigned long now = 0;
-
-  rrp_bytes = 0;
-  tim = millis();
-  now = millis();
-  while(rrp_bytes < 10)   // loop until it has received 10 contiguous RF bytes
+int receptorAlarma::receiveRF(RFM69X& radio) {
+  int now = millis();
+  if (radio.receiveDone())
   {
-    now = millis();
-    if (now-tim > 100) return 0;
-    //-----------------------------------------
-    // wait for a start pulse >200uS
-    while(1)
+    Serial.print('[');Serial.print(radio.SENDERID, DEC);Serial.print("] ");
+    Serial.print(" [RX_RSSI:");Serial.print(radio.RSSI);Serial.print("]");
+
+    if (radio.DATALEN != sizeof(Payload))
+      Serial.print("Invalid payload received, not matching Payload struct!");
+    else
     {
-      now = millis();
-    if (now-tim > 100) return 0;
-      while(!digitalRead(__Pin)) {
-        now = millis();
-    if (now-tim > 100) return 0;
-      }    // wait for input / edge
-      while(digitalRead(__Pin)) {
-        now = millis();
-    if (now-tim > 100) return 0;
-      }     // wait for input \ edge
-      rrp_period = TMR0L;           // grab the pulse period!
-      //Serial.println(TMR0L);
-      TMR0L = 0;                    // and ready to record next period
-      if(rrp_period < 200) rrp_bytes = 0;   // clear bytecount if still receiving noise
-      else break;                   // exit if pulse was >200uS
+      theData = *(Payload*)radio.DATA; //assume radio.DATA actually contains our struct and not something else
+      Serial.print(" nodeId=");
+      Serial.print(theData.nodeId);
+      Serial.print(" frameCount=");
+      Serial.print (theData.frameCnt);
+      Serial.print(" uptime=");
+      Serial.print(theData.uptime);
+      Serial.print(" sensorType=");
+      Serial.print(theData.sensorType);
+      Serial.print(" msg=");
+      Serial.print(theData.msg);
+      sensorType = theData.sensorType;
+      ID = String(theData.nodeId);
     }
 
-    //-----------------------------------------
-    // now we had a start pulse, record 32 bits
-    rrp_bits = 32;
-    while(rrp_bits)
+    if (radio.ACKRequested())
     {
-      while(!digitalRead(__Pin)) {}    // wait for input / edge
-      while(digitalRead(__Pin)) {}     // wait for input \ edge
-      rrp_period = TMR0L;           // grab the pulse period!
-      //Serial.println(TMR0L);
-      TMR0L = 0;                    // and ready to record next period
+      byte theNodeID = radio.SENDERID;
+      radio.sendACK();
+      Serial.print(" - ACK sent.");
 
-      if(rrp_period >= 200) break;  // if >=200uS, is unexpected start pulse!
-
-      if(rrp_period < 122) {
-        bitWrite(rrp_data, 32-rrp_bits, 0);    // 122uS
-        //Serial.print("0");
+      // When a node requests an ACK, respond to the ACK
+      // and also send a packet requesting an ACK (every 3rd one only)
+      // This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
+      if (ackCount++%3==0)
+      {
+        pingCnt++;
+        Serial.print(" Pinging node ");
+        Serial.print(theNodeID);
+        Serial.print(" Ping count= ");
+        Serial.print (pingCnt);
+        delay(10); //need this when sending right after reception .. ?
+        if (radio.sendWithRetry(theNodeID, "ACK TEST", SEND_RTRY, SEND_WAIT_WDG))
+        {
+          Serial.print (" ACK received = ");
+          Serial.print (++ackReceivedCnt);
+        }
+        else Serial.print(" nothing");
       }
-      else {
-        bitWrite(rrp_data, 32-rrp_bits, 1);
-        //Serial.print("1");
-      }
-        rrp_bits--;                   // and record 1 more good bit done
     }
-
-    //-----------------------------------------
-    // gets to here after 8 good bits OR after an error (unexpected start pulse)
-    if(rrp_bits)      // if error
-    {
-      rrp_bytes = 0;  // reset bytes, must run from start of a new packet again!
-      return 0;
-    }
-    else              // else 8 good bits were received
-    {
-      Serial.println(" ");
-      Serial.println("Mensaje RF: " + String(rrp_data));
-      rxdat[rrp_bytes] = rrp_data;  // so save the received byte into array
-      rrp_bytes++;                  // record another good byte was saved
-      return rrp_data;
-    }
-    return 0;
+    Serial.println();
+    return theData.msg;
   }
+  delay(1);
   return 0;
+}
+
+void receptorAlarma::beginRadio(byte ackCoun, long int pingCn, byte SEND_RTR, unsigned long SEND_WAIT_WD, long int ackReceivedCn) {
+ackCount = ackCoun;
+pingCnt = pingCn;
+SEND_RTRY = SEND_RTR;
+SEND_WAIT_WDG = SEND_WAIT_WD;
+ackReceivedCnt = ackReceivedCn;
 }

@@ -34,6 +34,7 @@ along with eHogar.  If not, see <https://www.gnu.org/licenses/>.
 #endif
 
 #include <EEPROM.h>
+#include <RFM69X.h>
 
 class sensorTx
   {  private:
@@ -41,21 +42,38 @@ class sensorTx
          int __Tx;
          int __Input;
          int __Button;
-         unsigned long __iType;
+         int __iType;
          unsigned long __ID;
          int now = 5;
          int last = 0;
          bool state = LOW;
          bool prevState = LOW;
+         struct __attribute__((__packed__)) Payload {                // Radio packet structure max 61 bytes or 57 id SessionKey is used
+           long int      nodeId; //store this nodeId
+           long int      frameCnt;// frame counter
+           unsigned long uptime; //uptime in ms
+           int         sensorType;
+           int msg;
+         };
+         Payload theData;
+         long int ackSentCnt;
+          int TRANSMITPERIOD;
+           long lastPeriod;
+            int NODEID;
+             long int frameCnt; int REMOTEID;
+              byte SEND_RTRY;
+               unsigned long SEND_WAIT_WDG;
+               int message;
 
 
      public:
         sensorTx ( int ID, String type) ; // Constructor
-        void begin( int tx, int input, int button, bool print) ;
-        void rfTransmission(unsigned long txdat);
-        void txConection();
-        void txPairing();
-        void txAlarm();
-        void monitor();
+        void begin(int input, int button, bool print) ;
+        void rfTransmission(int message, RFM69X& radio);
+        void txConection(RFM69X& radi);
+        void txPairing(RFM69X& radi);
+        void txAlarm(RFM69X& radi);
+        void monitor(RFM69X& radi);
+        void radioBegin(RFM69X& radi, long int ackSentCnt, int TRANSMITPERIOD, long lastPeriod, int NODEID, long int frameCnt, int REMOTEID, byte SEND_RTRY, unsigned long SEND_WAIT_WDG);
   };
    #endif

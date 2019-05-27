@@ -35,21 +35,38 @@ along with eHogar.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <autoCreator.h>
 #include <PubSubClient.h>
+#include <RFM69X.h> //  eXteneded RFM69 base library
 
 class receptorAlarma
   {  private:
         String __Topic;
         int __Pin;
         unsigned char rxdat[10];  // (global var) holds received RF bytes
+        struct __attribute__((__packed__)) Payload {                // Radio packet structure max 61 bytes or 57 id SessionKey is used
+          long int      nodeId; //store this nodeId
+          long int      frameCnt;// frame counter
+          unsigned long uptime; //uptime in ms
+          int         sensorType;   //temperature maybe??
+          int msg;
+        };
+        Payload theData;
+        byte ackCount;
+        long int pingCnt;
+        byte SEND_RTRY;
+        unsigned long SEND_WAIT_WDG;
+        long int ackReceivedCnt;
+        int sensorType;
+        String ID;
 
      public:
         unsigned long TMR0L = 0;
         receptorAlarma (int pin, String topic) ; // Constructor
         void begin();
-        void addSensor(String location, PubSubClient &client);
-        void cleanSensors();
-        void monitor(PubSubClient &client);
-        void publish(unsigned long message, PubSubClient &client);
-        unsigned long receiveRF();
+        void addSensor(String location, PubSubClient &client, RFM69X& radio);
+        void cleanSensors(PubSubClient &client);
+        void monitor(PubSubClient& client, RFM69X& radio);
+        void publish(int message, PubSubClient &client);
+        int receiveRF(RFM69X& radio);
+        void beginRadio(byte ackCoun, long int pingCn, byte SEND_RTR, unsigned long SEND_WAIT_WD, long int ackReceivedCn);
   };
    #endif
