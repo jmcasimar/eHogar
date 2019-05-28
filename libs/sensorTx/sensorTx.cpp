@@ -110,14 +110,64 @@ void sensorTx::monitor(RFM69X& radi) {
     }
   }
 
-  void sensorTx::radioBegin(RFM69X& radi, long int ackSentCn, int TRANSMITPERIO, long lastPerio, int NODEI, long int frameCn, int REMOTEI, byte SEND_RTR, unsigned long SEND_WAIT_WD)
+  void sensorTx::radioBegin(RFM69X& radi, int FREQUENC, int NODEI, int REMOTEI, int NETWORKI, boolean IS_RFM69H, bool SEND_PROMISCUOU)
   {
-    ackSentCnt = ackSentCn;
-    TRANSMITPERIOD = TRANSMITPERIO;
-    lastPeriod = lastPerio;
+    FREQUENCY = FREQUENC;
+    NETWORKID = NETWORKI;
+    IS_RFM69HW = IS_RFM69H;
+    SEND_PROMISCUOUS = SEND_PROMISCUOU;
+    if (!radi.initialize(FREQUENCY, NODEID, NETWORKID))
+    {
+      Serial.println ("\n****************************************************************");
+      Serial.println (" WARNING: RFM Transceiver intialization failure: Set-up Halted  ");
+      Serial.println ("****************************************************************");
+      while (1); // Halt the process
+    }
+
+    if (IS_RFM69HW)  radi.setHighPower();      // Only for RFM69HW!                 // Set encryption
+    radi.promiscuous(SEND_PROMISCUOUS);        // Set promiscuous mode
+  #ifdef RFM_SESSION
+    radi.useSessionKey(SESSION_KEY);           // Set session mode
+    radi.sessionWaitTime(SESSION_WAIT_WDG);    // Set the Session Wait Watchdog
+    radi.useSession3Acks(SESSION_3ACKS);       // Set the Session 3 Acks option
+    radi.sessionRespDelayTime(SESSION_RSP_DLY);// Set the slow node delay timer
+  #endif
+    Serial.print ("\nBoard Type: ");
+  #ifdef __AVR_ATmega1284P__
+    Serial.println ("__AVR_ATmega1284P__");
+  #endif
+  #ifdef __AVR_ATmega328P__
+    Serial.println ("__AVR_ATmega328P__");
+  #endif
+  #ifdef ESP8266
+    Serial.println ("ESP8266");
+  #endif
+  #ifdef ESP32
+    Serial.println ("ESP32");
+  #endif
+  #ifdef __AVR_ATmega2560__
+    Serial.println ("__AVR_ATmega2560__");
+  #endif
+
+  #ifdef RFM_SESSION
+  #ifdef X
+    Serial.println ("Using RFM69X Extended Session mode");
+  #else
+    Serial.println ("Using RFM69 Session mode");
+  #endif
+  #else
+  #ifdef X
+    Serial.println ("Using RFM69 Extended mode");
+  #else
+    Serial.println ("Using RFM69 Basic mode");
+  #endif
+  #endif
+
+
+    char buff[50];
+    sprintf(buff, "\nTransmitting at %d Mhz...", FREQUENCY == RF69_433MHZ ? 433 : FREQUENCY == RF69_868MHZ ? 868 : 915);
+    Serial.println(buff);
+
     NODEID = NODEI;
-    frameCnt = frameCn;
     REMOTEID = REMOTEI;
-    SEND_RTRY = SEND_RTR;
-    SEND_WAIT_WDG = SEND_WAIT_WD;
   }

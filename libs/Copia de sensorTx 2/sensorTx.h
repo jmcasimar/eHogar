@@ -71,16 +71,20 @@ class sensorTx
                char ENCRYPTKEY[16];
                bool SEND_PROMISCUOUS = false;
                byte sendSize = 0;
-
+               int RFM_SS = 0;
+               int RFM_INT = 0;
+               bool IS_RFM69HW = false;
+               int RFM_INTNUM = 0;
+              extern RFM69X radio(RFM_SS, RFM_INT, IS_RFM69HW, RFM_INTNUM);
 
      public:
         sensorTx ( int ID, String type) ; // Constructor
         void begin(int input, int button, bool print) ;
-        void rfTransmission(int message, RFM69X& radio);
-        void txConection(RFM69X& radi);
-        void txPairing(RFM69X& radi);
-        void txAlarm(RFM69X& radi);
-        void monitor(RFM69X& radi);
-        void radioBegin(RFM69X& radi, int FREQUENC, int NODEI, int REMOTEI, int NETWORKI, boolean IS_RFM69H, bool SEND_PROMISCUOU);
+        void rfTransmission(int message);
+        void txConection();
+        void txPairing();
+        void txAlarm();
+        void monitor();
+        void radioBegin();
   };
    #endif
