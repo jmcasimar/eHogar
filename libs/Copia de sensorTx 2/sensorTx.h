@@ -56,26 +56,24 @@ class sensorTx
            int msg;
          };
          Payload theData;
-          int TRANSMITPERIOD = 500;
-           long lastPeriod = -1;
-            int NODEID;
-             long int frameCnt = 0;
-             int REMOTEID;
-              byte SEND_RTRY = 0;
-               unsigned long SEND_WAIT_WDG = 40;
-               int message;
-               long int ackSentCnt = 0;
-               int FREQUENCY;
-               int NETWORKID;
-               boolean IS_RFM69HW = false;
-               char ENCRYPTKEY[16];
-               bool SEND_PROMISCUOUS = false;
-               byte sendSize = 0;
-               int RFM_SS = 0;
-               int RFM_INT = 0;
-               bool IS_RFM69HW = false;
-               int RFM_INTNUM = 0;
-              extern RFM69X radio(RFM_SS, RFM_INT, IS_RFM69HW, RFM_INTNUM);
+         int TRANSMITPERIOD = 500;
+         long lastPeriod = -1;
+         int NODEID;
+         long int frameCnt = 0;
+         int REMOTEID;
+         byte SEND_RTRY = 0;
+         unsigned long SEND_WAIT_WDG = 40;
+         int message;
+         long int ackSentCnt = 0;
+         int FREQUENCY;
+         int NETWORKID;
+         char ENCRYPTKEY[16];
+         bool SEND_PROMISCUOUS = false;
+         byte sendSize = 0;
+         int RFM_SS = 0;
+         int RFM_INT = 0;
+         int RFM_INTNUM = 0;
+         RFM69X radio;
 
      public:
         sensorTx ( int ID, String type) ; // Constructor

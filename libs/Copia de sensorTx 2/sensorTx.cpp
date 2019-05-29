@@ -31,19 +31,19 @@ void sensorTx::begin(int input, int button, bool print = LOW)
        Serial.println(__Button);
      }
 
+     radioBegin();
+
   }
 
   void sensorTx::radioBegin()
-  {
+  { bool IS_RFM69HW = false; // If High power RFM69HW is used
 
-    boolean IS_RFM69HW = false; // If High power RFM69HW is used
-
-    #ifdef ESP32                // Allows automatic ESP32 processor recognition
+    /*#ifdef ESP32                // Allows automatic ESP32 processor recognition
     #include <WiFi.h>          // Required for ESP32
     #define X                  // eXtended Library Selector mandatory for ESP32
     #endif
     #include <RFM69X.h> //  eXteneded RFM69 base library
-
+    */
     #define NODEID      99
     #define NETWORKID   100
     #define REMOTEID   1
@@ -75,6 +75,7 @@ void sensorTx::begin(int input, int button, bool print = LOW)
     byte RFM_INTNUM = digitalPinToInterrupt(RFM_INT);  // Standard way to convert Interrupt pin in interrupt number
     #endif
 
+    //RFM69X
     RFM69X radio(RFM_SS, RFM_INT, IS_RFM69HW, RFM_INTNUM);
 
     if (!radio.initialize(FREQUENCY, NODEID, NETWORKID))
@@ -86,13 +87,13 @@ void sensorTx::begin(int input, int button, bool print = LOW)
     }
 
     if (IS_RFM69HW)  radio.setHighPower();      // Only for RFM69HW!                 // Set encryption
-    radio.promiscuous(SEND_PROMISCUOUS);        // Set promiscuous mode
-  #ifdef RFM_SESSION
-    radio.useSessionKey(SESSION_KEY);           // Set session mode
-    radio.sessionWaitTime(SESSION_WAIT_WDG);    // Set the Session Wait Watchdog
-    radio.useSession3Acks(SESSION_3ACKS);       // Set the Session 3 Acks option
-    radio.sessionRespDelayTime(SESSION_RSP_DLY);// Set the slow node delay timer
-    radio.encrypt(ENCRYPTKEY);
+      radio.promiscuous(SEND_PROMISCUOUS);        // Set promiscuous mode
+    #ifdef RFM_SESSION
+      radio.useSessionKey(SESSION_KEY);           // Set session mode
+      radio.sessionWaitTime(SESSION_WAIT_WDG);    // Set the Session Wait Watchdog
+      radio.useSession3Acks(SESSION_3ACKS);       // Set the Session 3 Acks option
+      radio.sessionRespDelayTime(SESSION_RSP_DLY);// Set the slow node delay timer
+      radio.encrypt(ENCRYPTKEY);
 
   #endif
     Serial.print ("\nBoard Type: ");
@@ -130,10 +131,6 @@ void sensorTx::begin(int input, int button, bool print = LOW)
     char buff[50];
     sprintf(buff, "\nTransmitting at %d Mhz...", FREQUENCY == RF69_433MHZ ? 433 : FREQUENCY == RF69_868MHZ ? 868 : 915);
     Serial.println(buff);
-
-    NODEID = NODEI;
-    REMOTEID = REMOTEI;
-
   }
 
 
